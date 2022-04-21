@@ -112,6 +112,8 @@ public:
       ShuttleGui & S, EffectSettingsAccess &access) override;
    bool TransferDataToWindow(const EffectSettings &settings) override;
 
+   struct Validator;
+
 private:
    // EffectWahwah implementation
 

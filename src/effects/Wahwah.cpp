@@ -75,7 +75,105 @@ BEGIN_EVENT_TABLE(EffectWahwah, wxEvtHandler)
     EVT_TEXT(ID_OutGain, EffectWahwah::OnGainText)
 END_EVENT_TABLE();
 
+struct EffectWahwah::Validator
+   : EffectUIValidator
+{
+   Validator(EffectUIClientInterface& effect,
+      EffectSettingsAccess& access, EffectWahwahSettings& settings)
+      : EffectUIValidator{ effect, access }
+      , mSettings{ settings }
+   {}
+   virtual ~Validator() = default;
 
+   Effect& GetEffect() const { return static_cast<Effect&>(mEffect); }
+
+   bool ValidateUI() override;
+   bool UpdateUI() override;
+
+   void PopulateOrExchange(ShuttleGui& S);
+
+   void OnFreqSlider(wxCommandEvent& evt);
+   void OnPhaseSlider(wxCommandEvent& evt);
+   void OnDepthSlider(wxCommandEvent& evt);
+   void OnResonanceSlider(wxCommandEvent& evt);
+   void OnFreqOffSlider(wxCommandEvent& evt);
+   void OnGainSlider(wxCommandEvent& evt);
+
+   void OnFreqText(wxCommandEvent& evt);
+   void OnPhaseText(wxCommandEvent& evt);
+   void OnDepthText(wxCommandEvent& evt);
+   void OnResonanceText(wxCommandEvent& evt);
+   void OnFreqOffText(wxCommandEvent& evt);
+   void OnGainText(wxCommandEvent& evt);
+
+   wxTextCtrl* mFreqT;
+   wxTextCtrl* mPhaseT;
+   wxTextCtrl* mDepthT;
+   wxTextCtrl* mResT;
+   wxTextCtrl* mFreqOfsT;
+   wxTextCtrl* mOutGainT;
+
+   wxSlider* mFreqS;
+   wxSlider* mPhaseS;
+   wxSlider* mDepthS;
+   wxSlider* mResS;
+   wxSlider* mFreqOfsS;
+   wxSlider* mOutGainS;
+
+
+
+   EffectWahwahSettings& mSettings;
+
+   void EnableApplyFromValidate()
+   {
+      Effect& actualEffect = static_cast<Effect&>(mEffect);
+      actualEffect.EnableApply(actualEffect.GetUIParent()->Validate());
+   }
+
+   bool EnableApplyFromTransferDataToWindow()
+   {
+      Effect& actualEffect = static_cast<Effect&>(mEffect);
+      return actualEffect.EnableApply(actualEffect.GetUIParent()->TransferDataFromWindow());
+   }
+};
+
+
+bool EffectWahwah::Validator::ValidateUI()
+{
+   mAccess.ModifySettings
+   (
+      [this](EffectSettings& settings)
+   {
+      // pass back the modified settings to the MessageBuffer
+
+      // TODO uncomment at last step
+      //EffectEcho::GetSettings(settings) = mSettings;
+   }
+   );
+
+   return true;
+}
+
+
+bool EffectWahwah::Validator::UpdateUI()
+{
+   // get the settings from the MessageBuffer and write them to our local copy
+   const auto& settings = mAccess.Get();
+
+   // TODO uncomment at last step
+   //mSettings = GetSettings(settings);
+
+   auto& ms = mSettings;
+
+   mFreqS->SetValue((int)(ms.mFreq * Freq.scale));
+   mPhaseS->SetValue((int)(ms.mPhase * Phase.scale));
+   mDepthS->SetValue((int)(ms.mDepth * Depth.scale));
+   mResS->SetValue((int)(ms.mRes * Res.scale));
+   mFreqOfsS->SetValue((int)(ms.mFreqOfs * FreqOfs.scale));
+   mOutGainS->SetValue((int)(ms.mOutGain * OutGain.scale));
+   
+   return true;
+}
 
 EffectWahwah::EffectWahwah()
 {
@@ -481,4 +579,151 @@ void EffectWahwah::OnGainText(wxCommandEvent & WXUNUSED(evt))
    }
 
    mOutGainS->SetValue((int) (ms.mOutGain * OutGain.scale));
+}
+
+void EffectWahwah::Validator::OnFreqSlider(wxCommandEvent& evt)
+{
+   auto& ms = mSettings;
+
+   ms.mFreq = (double)evt.GetInt() / Freq.scale;
+   mFreqT->GetValidator()->TransferToWindow();
+
+   EnableApplyFromValidate();
+   ValidateUI();
+}
+
+void EffectWahwah::Validator::OnPhaseSlider(wxCommandEvent& evt)
+{
+   auto& ms = mSettings;
+
+   int val = ((evt.GetInt() + 5) / 10) * 10; // round to nearest multiple of 10
+   val = val > Phase.max * Phase.scale ? Phase.max * Phase.scale : val;
+   mPhaseS->SetValue(val);
+   ms.mPhase = (double)val / Phase.scale;
+   mPhaseT->GetValidator()->TransferToWindow();
+
+   EnableApplyFromValidate();
+   ValidateUI();
+}
+
+void EffectWahwah::Validator::OnDepthSlider(wxCommandEvent& evt)
+{
+   auto& ms = mSettings;
+
+   ms.mDepth = evt.GetInt() / Depth.scale;
+   mDepthT->GetValidator()->TransferToWindow();
+
+   EnableApplyFromValidate();
+   ValidateUI();
+}
+
+void EffectWahwah::Validator::OnResonanceSlider(wxCommandEvent& evt)
+{
+   auto& ms = mSettings;
+
+   ms.mRes = (double)evt.GetInt() / Res.scale;
+   mResT->GetValidator()->TransferToWindow();
+
+   EnableApplyFromValidate();
+   ValidateUI();
+}
+
+void EffectWahwah::Validator::OnFreqOffSlider(wxCommandEvent& evt)
+{
+   auto& ms = mSettings;
+
+   ms.mFreqOfs = evt.GetInt() / FreqOfs.scale;
+   mFreqOfsT->GetValidator()->TransferToWindow();
+
+   EnableApplyFromValidate();
+   ValidateUI();
+}
+
+void EffectWahwah::Validator::OnGainSlider(wxCommandEvent& evt)
+{
+   auto& ms = mSettings;
+
+   ms.mOutGain = evt.GetInt() / OutGain.scale;
+   mOutGainT->GetValidator()->TransferToWindow();
+
+   EnableApplyFromValidate();
+   ValidateUI();
+}
+
+void EffectWahwah::Validator::OnFreqText(wxCommandEvent& WXUNUSED(evt))
+{
+   auto& ms = mSettings;
+
+   if (!EnableApplyFromTransferDataToWindow())
+   {
+      return;
+   }
+
+   mFreqS->SetValue((int)(ms.mFreq * Freq.scale));
+   ValidateUI();
+}
+
+void EffectWahwah::Validator::OnPhaseText(wxCommandEvent& WXUNUSED(evt))
+{
+   auto& ms = mSettings;
+
+   if (!EnableApplyFromTransferDataToWindow())
+   {
+      return;
+   }
+
+   mPhaseS->SetValue((int)(ms.mPhase * Phase.scale));
+   ValidateUI();
+}
+
+void EffectWahwah::Validator::OnDepthText(wxCommandEvent& WXUNUSED(evt))
+{
+   auto& ms = mSettings;
+
+   if (!EnableApplyFromTransferDataToWindow())
+   {
+      return;
+   }
+
+   mDepthS->SetValue((int)(ms.mDepth * Depth.scale));
+   ValidateUI();
+}
+
+void EffectWahwah::Validator::OnResonanceText(wxCommandEvent& WXUNUSED(evt))
+{
+   auto& ms = mSettings;
+
+   if (!EnableApplyFromTransferDataToWindow())
+   {
+      return;
+   }
+
+   mResS->SetValue((int)(ms.mRes * Res.scale));
+   ValidateUI();
+}
+
+void EffectWahwah::Validator::OnFreqOffText(wxCommandEvent& WXUNUSED(evt))
+{
+   auto& ms = mSettings;
+
+   if (!EnableApplyFromTransferDataToWindow())
+   {
+      return;
+   }
+
+   mFreqOfsS->SetValue((int)(ms.mFreqOfs * FreqOfs.scale));
+   ValidateUI();
+}
+
+void EffectWahwah::Validator::OnGainText(wxCommandEvent& WXUNUSED(evt))
+{
+   auto& ms = mSettings;
+
+   if (!EnableApplyFromTransferDataToWindow())
+   {
+      return;
+   }
+
+   mOutGainS->SetValue((int)(ms.mOutGain * OutGain.scale));
+   ValidateUI();
 }
