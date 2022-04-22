@@ -27,7 +27,11 @@ Let use use EffectEcho as an example.
    In cpp file:
        Insert sufficient auto& echoSettings = mSettings; (which changes later) and echoSettings. (which won't need more change) to fix compilation
         
-       Remove call to Parameters().Reset(*this); in constructor
+       Go to the constructor and remove call to
+
+         Parameters().Reset(*this);
+
+       As the initializations it did, now happen in the constructor of EffectEchoSettings because we use in-struct initializers with the same default values as in the EffectParmeters.
         
     
 2) "Define validator"
@@ -41,11 +45,11 @@ Let use use EffectEcho as an example.
     add class definition in the .cpp with mSettings:
     
         struct EffectEcho::Validator
-           : DefaultEffectUIValidator
+           : EffectUIValidator
         {
            Validator(EffectUIClientInterface& effect,
               EffectSettingsAccess& access, EffectEchoSettings& settings)
-              : DefaultEffectUIValidator{ effect, access }
+              : EffectUIValidator{ effect, access }
               , mSettings{ settings }
            {}
            virtual ~Validator() = default;
@@ -78,6 +82,10 @@ Let use use EffectEcho as an example.
         }
 
 
+        If the effect has an override of ::TransferDataFromWindow():
+        copy its steps into the ValidateUI() function above.
+
+
         bool EffectEcho::Validator::UpdateUI()
         {
            // get the settings from the MessageBuffer and write them to our local copy
@@ -89,8 +97,13 @@ Let use use EffectEcho as an example.
            return true;
         }
 
-    
 
+    ADDITIONAL STEPS for an effect which has explicitly declared Sliders, Textboxes etc.
+
+    - copy all declarations of wxWidgets (wxTextCtrl, wxSlider etc.) and paste them in the validator definition (in cpp file)
+    
+    - copy all declarations of handlers like void On***Slider, On***Text and paste them in the validator definition (in cpp file)
+      IMPORTANT: at the end of all the handlers, add a call to ValidateUI();
 
 3) "Define the instance"
 
@@ -116,7 +129,7 @@ Let use use EffectEcho as an example.
            , public EffectInstanceWithSampleRate
 
         {
-           Instance(const PerTrackEffect& effect)
+           explicit Instance(const PerTrackEffect& effect)
               : PerTrackEffect::Instance{ effect }
            {}
 
@@ -211,6 +224,44 @@ Let use use EffectEcho as an example.
            result->PopulateOrExchange(S);
            return result;
         }
+
+    ADDITIONAL STEPS for an effect which has explicitly declared Sliders, Textboxes etc.
+    
+    In header file:
+    
+    - remove all declarations of wxWidgets (wxTextCtrl, wxSlider etc.) as we are now going to use their copy
+      in the validator that you created in step 2
+    
+    - remove all declarations like void On***Slider, On***Text as we are now going to use their copy
+      in the validator that you created in step 2
+
+    - delete declaration 
+        bool TransferDataToWindow(const EffectSettings &settings) override;
+    
+    - delete line 
+        DECLARE_EVENT_TABLE();
+    
+    In cpp file:
+    
+    - delete the enum containing the ID_*** for the controls
+    
+    - delete the section BEGIN_EVENT_TABLE.... END EVENT_TABLE
+    
+    - in Validator::UpdateUI, paste the SetValue() statements you find in TransferDataToWindow
+    
+    - delete TransferDataToWindow definition
+    
+    - in Validator::PopulateOrExchange
+      -- remove the calls to .Id(...) on the ShuttleGui
+      -- just after every creation of a widget, add a line like:
+      
+            BindTo(*mFreqT, wxEVT_TEXT, &Validator::OnFreqText);
+         
+         where: 
+         1st arg is the just created widget
+         2nd arg is either wxEVT_TEXT or wxEVT_SLIDER according to the widget type
+         3rd arg is the handler which is meant to handle events coming from the widget
+    
 
 
 Some notes by Paul Licameli:
