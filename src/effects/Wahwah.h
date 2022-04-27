@@ -19,6 +19,8 @@
 #include "StatefulPerTrackEffect.h"
 #include "../ShuttleAutomation.h"
 
+class wxSlider;
+class wxTextCtrl;
 class ShuttleGui;
 
 class EffectWahwahState
