@@ -138,19 +138,6 @@ private:
    EffectWahwahState mMaster;
    std::vector<EffectWahwahState> mSlaves;
 
-   /* Parameters:
-   mFreq - LFO frequency
-   mPhase - LFO startphase in RADIANS - useful for stereo WahWah
-   mDepth - Wah depth
-   mRes - Resonance
-   mFreqOfs - Wah frequency offset
-   mOutGain - output gain
-
-   !!!!!!!!!!!!! IMPORTANT!!!!!!!!! :
-   mDepth and mFreqOfs should be from 0(min) to 1(max) !
-   mRes should be greater than 0 !  */
-
-
    wxTextCtrl *mFreqT;
    wxTextCtrl *mPhaseT;
    wxTextCtrl *mDepthT;
