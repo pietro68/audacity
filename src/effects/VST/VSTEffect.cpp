@@ -561,9 +561,9 @@ void VSTEffectOptionsDialog::OnOk(wxCommandEvent & WXUNUSED(evt))
 class VSTEffectTimer final : public wxTimer
 {
 public:
-   VSTEffectTimer(VSTEffect *effect)
+   VSTEffectTimer(VSTEffectValidator* pValidator)
    :  wxTimer(),
-      mEffect(effect)
+      mpValidator(pValidator)
    {
    }
 
@@ -573,11 +573,11 @@ public:
 
    void Notify()
    {
-      mEffect->OnTimer();
+      mpValidator->OnTimer();
    }
 
 private:
-   VSTEffect *mEffect;
+   VSTEffectValidator* mpValidator;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -789,7 +789,7 @@ void VSTEffect::ResourceHandle::reset()
 VSTEffect::VSTEffect(const PluginPath & path)
 :  VSTEffectWrapper(path)
 {
-   mTimer = std::make_unique<VSTEffectTimer>(this);
+   //mTimer = std::make_unique<VSTEffectTimer>(this);
 
    memset(&mTimeInfo, 0, sizeof(mTimeInfo));
    mTimeInfo.samplePos = 0.0;
@@ -1308,7 +1308,7 @@ std::unique_ptr<EffectUIValidator> VSTEffect::PopulateUI(ShuttleGui &S,
    // These could be moved in the validator constructor
    validator->Load();
    validator->mParent = mParent;
-   validator->mTimer = std::make_unique<VSTEffectTimer>(this);
+   validator->mTimer = std::make_unique<VSTEffectTimer>(validator.get());
    validator->mDialog = static_cast<wxDialog*>(wxGetTopLevelParent(parent));
 
 
@@ -1356,7 +1356,10 @@ bool VSTEffect::CloseUI()
 
    mValidator->GetInstance().PowerOff();
 
-   NeedEditIdle(false);
+   // CAUTION this was disabled only to allow building,
+   // but you probably want this in the validator ::OnClose
+   // 
+   // NeedEditIdle(false);
 
    RemoveHandler();
 
@@ -1967,7 +1970,7 @@ bool VSTEffect::SaveParameters(
       group, wxT("Parameters"), parms);
 }
 
-void VSTEffect::OnTimer()
+void VSTEffectValidator::OnTimer()
 {
    wxRecursionGuard guard(mTimerGuard);
 
@@ -1994,15 +1997,29 @@ void VSTEffect::OnTimer()
 
 void VSTEffect::NeedIdle()
 {
+   // do nothing, now "moved" to validator
+}
+
+/*
+void VSTEffectWrapper::NeedEditIdle(bool state)
+{
+   // do nothing, now "moved" to validator
+}
+*/
+
+void VSTEffectValidator::NeedIdle()
+{
    mWantsIdle = true;
    mTimer->Start(100);
 }
 
-void VSTEffectWrapper::NeedEditIdle(bool state)
+void VSTEffectValidator::NeedEditIdle(bool state)
 {
    mWantsEditIdle = state;
    mTimer->Start(100);
 }
+
+
 
 VstTimeInfo* VSTEffectWrapper::GetTimeInfo()
 {
