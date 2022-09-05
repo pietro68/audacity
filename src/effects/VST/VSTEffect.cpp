@@ -1295,7 +1295,6 @@ std::unique_ptr<EffectUIValidator> VSTEffect::PopulateUI(ShuttleGui &S,
    EffectInstance& instance, EffectSettingsAccess &access)
 {
    auto parent = S.GetParent();
-   mParentFE = parent;
 
    // Determine if the VST editor is supposed to be used or not
    GetConfig(*this, PluginSettings::Shared, wxT("Options"),
@@ -1337,8 +1336,6 @@ bool VSTEffect::IsGraphicalUI()
 
 bool VSTEffect::CloseUI()
 {
-   mParentFE = NULL;
-
    return true;
 }
 
@@ -1400,7 +1397,7 @@ void VSTEffect::ExportPresets(const EffectSettings& settings) const
          XO("Unrecognized file extension."),
          XO("Error Saving VST Presets"),
          wxOK | wxCENTRE,
-         mParentFE);
+         nullptr);
 
       return;
    }
@@ -1427,7 +1424,7 @@ void VSTEffect::ImportPresets(EffectSettings& settings)
          true
       } },
       wxFD_OPEN | wxRESIZE_BORDER,
-      mParentFE);
+      nullptr);
 
    // User canceled...
    if (path.empty())
@@ -1457,7 +1454,7 @@ void VSTEffect::ImportPresets(EffectSettings& settings)
          XO("Unrecognized file extension."),
          XO("Error Loading VST Presets"),
          wxOK | wxCENTRE,
-         mParentFE);
+         nullptr);
 
          return;
    }
@@ -1468,7 +1465,7 @@ void VSTEffect::ImportPresets(EffectSettings& settings)
          XO("Unable to load presets file."),
          XO("Error Loading VST Presets"),
          wxOK | wxCENTRE,
-         mParentFE);
+         nullptr);
 
       return;
    }
@@ -1485,7 +1482,7 @@ bool VSTEffect::HasOptions()
 
 void VSTEffect::ShowOptions()
 {
-   VSTEffectOptionsDialog dlg(mParentFE, *this);
+   VSTEffectOptionsDialog dlg(nullptr, *this);
    if (dlg.ShowModal())
    {
       // Reinitialize configuration settings
@@ -2029,13 +2026,17 @@ void VSTEffectInstance::PowerOff()
 
 void VSTEffect::SizeWindow(int w, int h)
 {
+}
+
+void VSTEffectValidator::SizeWindow(int w, int h)
+{
    // Queue the event to make the resizes smoother
-   if (mParentFE)
+   if (mParent)
    {
       wxCommandEvent sw(EVT_SIZEWINDOW);
       sw.SetInt(w);
       sw.SetExtraLong(h);
-      mParentFE->GetEventHandler()->AddPendingEvent(sw);
+      mParent->GetEventHandler()->AddPendingEvent(sw);
    }
 
    return;
