@@ -1224,6 +1224,8 @@ bool VSTEffect::CopySettingsContents(const EffectSettings& src, EffectSettings& 
       dstIter++;
    }
 
+   assert(dstIter == dstEnd);
+
    return true;
 }
 
