@@ -1027,6 +1027,9 @@ size_t VSTEffectInstance::ProcessBlock(EffectSettings &,
 
 bool VSTEffectInstance::RealtimeInitialize(EffectSettings &settings, double sampleRate)
 {
+   mMasterIn.reinit (mAudioIns, mBlockSize, true);
+   mMasterOut.reinit(mAudioOuts, mBlockSize);
+
    return DoProcessInitialize(sampleRate);
 }
 
@@ -1050,6 +1053,10 @@ return GuardedCall<bool>([&]{
    for (const auto &slave : mSlaves)
       slave->ProcessFinalize();
    mSlaves.clear();
+
+   mMasterIn.reset();
+
+   mMasterOut.reset();
 
    return ProcessFinalize();
 });
@@ -1077,6 +1084,13 @@ bool VSTEffectInstance::RealtimeResume()
 
 bool VSTEffectInstance::RealtimeProcessStart(EffectSettings& settings)
 {
+   // For metering
+   for (unsigned int i = 0; i < mAudioIns; i++)
+      memset(mMasterIn[i].get(), 0, mBlockSize * sizeof(float));
+
+   mNumSamples = 0;
+
+
    // It has been suggested that this loop is now useless and the StoreSettings can
    // be called directly on "this" - however, this was tried and it did not work,
    // i.e. sliders changes would not be heard in the realtime processed.
@@ -1094,6 +1108,36 @@ size_t VSTEffectInstance::RealtimeProcess(size_t group, EffectSettings &settings
    const float *const *inbuf, float *const *outbuf, size_t numSamples)
 {
    wxASSERT(numSamples <= mBlockSize);
+
+   // For metering
+   for (unsigned int c = 0; c < mAudioIns; c++)
+   {
+      for (decltype(numSamples) s = 0; s < numSamples; s++)
+      {
+         mMasterIn[c][s] += inbuf[0][s];
+         //                       ^
+         //                       |  ([0] instead of [c])
+         //                       |
+         // TEMP HACK:            |
+         // Always copy input channel 0 to all effect metering inputs, or else
+         // when having a stereo-meter effect (e.g. DeeGain) on a mono track,
+         // only its left meter will be moving.
+         //
+         // This is of course wrong when having a stereo track feed a stereo effect,
+         // (because both meters will report the L channel) but at least it looks
+         // less ugly than having only the L meter working, in the case above.
+         // 
+         // TODO LATER:
+         // find a way to know how many channels the track really has - and then
+         // use this info to copy inbuf to mMasterIn in the appropriate way.
+         //
+         // Note: RealtimeEffectState::AddTrack provides the no. of channels in the
+         // track, but that info does not get through to the effect (afaik).
+      }
+   }
+   mNumSamples = std::max(numSamples, mNumSamples);
+
+
    if (group >= mSlaves.size())
       return 0;
    return mSlaves[group]->ProcessBlock(settings, inbuf, outbuf, numSamples);
@@ -1101,6 +1145,19 @@ size_t VSTEffectInstance::RealtimeProcess(size_t group, EffectSettings &settings
 
 bool VSTEffectInstance::RealtimeProcessEnd(EffectSettings &) noexcept
 {
+   
+   if (mpValidator)
+   {
+      // For metering
+      if (mNumSamples)
+      {
+        mpValidator->callProcessReplacing(reinterpret_cast <float**> (mMasterIn.get()),
+                                          reinterpret_cast <float**> (mMasterOut.get()),
+                                          mNumSamples);
+
+      }
+   }
+
    return true;
 }
 
@@ -2139,7 +2196,7 @@ intptr_t VSTEffectWrapper::constCallDispatcher(int opcode,
       ->callDispatcher(opcode, index, value, ptr, opt);
 }
 
-void VSTEffectInstance::callProcessReplacing(const float *const *inputs,
+void VSTEffectWrapper::callProcessReplacing(const float *const *inputs,
    float *const *outputs, int sampleframes)
 {
    mAEffect->processReplacing(mAEffect,
@@ -3577,7 +3634,9 @@ VSTEffectValidator::VSTEffectValidator
 
    Load();
 
-   mTimer = std::make_unique<VSTEffectTimer>(this);   
+   mTimer = std::make_unique<VSTEffectTimer>(this);
+
+   instance.SetValidator(this);
 }
 
 

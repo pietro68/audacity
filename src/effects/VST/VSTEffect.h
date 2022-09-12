@@ -279,6 +279,10 @@ struct VSTEffectWrapper : public VSTEffectLink, public XMLTagHandler
    // Some other methods called by the callback make sense for Instances:
    void         SetBufferDelay(int samples);
 
+
+   void callProcessReplacing(
+      const float* const* inputs, float* const* outputs, int sampleframes);
+
 };
 
 class VSTEffectInstance;
@@ -540,10 +544,13 @@ public:
          const_cast<PerTrackEffect&>(mProcessor));
    }
 
+   void SetValidator(VSTEffectValidator* apValidator)
+   {
+      mpValidator = apValidator;
+   }
+
 private:
 
-   void callProcessReplacing(
-      const float* const* inputs, float* const* outputs, int sampleframes);
 
    VSTEffectSettings& GetSettings(EffectSettings& settings) const
    {
@@ -556,7 +563,16 @@ private:
 
    size_t mUserBlockSize{ mBlockSize };
 
-   bool mReady{ false };     
+   bool mReady{ false };
+
+   // We need the validator which references this instance,
+   // in order to update GUI metering
+   VSTEffectValidator* mpValidator{};
+
+   // Scratch I/O buffers that are used to feed the process function
+   // of the linked validator, in order to get GUI metering.
+   FloatBuffers mMasterIn, mMasterOut;
+   size_t mNumSamples;
 };
 
 
