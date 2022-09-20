@@ -97,6 +97,10 @@ struct VSTEffectSettings
 
    // Fallback data used when the chunk is not available.
    std::map<wxString, double> mParamsMap;
+
+   // To accumulate parameter changes coming from the GUI (i.e. in main thread)
+   // and then used in RealtimeProcessStart (i.e. in worker thread)
+   std::vector<std::optional<float> > mPendingChanges;
 };
 
 
@@ -539,6 +543,8 @@ public:
       return static_cast<VSTEffect&>(
          const_cast<PerTrackEffect&>(mProcessor));
    }
+
+   void ApplyPendingChanges(EffectSettings& settings);
 
 private:
 

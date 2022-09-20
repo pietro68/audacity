@@ -964,7 +964,8 @@ bool VSTEffectInstance::IsReady()
 bool VSTEffectInstance::ProcessInitialize(
    EffectSettings& settings, double sampleRate, ChannelNames)
 {
-   StoreSettings(GetSettings(settings));
+   // This call is needed to correctly perform destructive processing
+   ApplyPendingChanges(settings);
 
    return DoProcessInitialize(sampleRate);
 }
@@ -1075,18 +1076,32 @@ bool VSTEffectInstance::RealtimeResume()
    return true;
 }
 
+void VSTEffectInstance::ApplyPendingChanges(EffectSettings& settings)
+{
+   // Apply any pending changes accumulated in calls to ::Automate
+   auto& changes = GetSettings(settings).mPendingChanges;
+   for (size_t i = 0; i < changes.size(); i++)
+   {
+      if (changes[i] != std::nullopt)
+      {
+         // Set the pending change to the instance itself and to the slaves
+         callSetParameter(i, *changes[i]);
+         for (auto& slave : mSlaves)
+         {
+            slave->callSetParameter(i, *changes[i]);
+         }
+
+         // the pending change was applied, now we need to actually
+         // consume it - else it will be applied again later!
+         changes[i] = std::nullopt;
+      }
+   }
+}
+
 bool VSTEffectInstance::RealtimeProcessStart(EffectSettings& settings)
 {
-   // It has been suggested that this loop is now useless and the StoreSettings can
-   // be called directly on "this" - however, this was tried and it did not work,
-   // i.e. sliders changes would not be heard in the realtime processed.
-   //
-   // If anything, the loop could be replaced with mSlaves[0].StoreSettings(...)
-   //
-   for (auto& slave : mSlaves)
-   {
-      slave->StoreSettings(GetSettings(settings));
-   }
+   ApplyPendingChanges(settings);
+
    return true;
 }
 
@@ -1225,6 +1240,13 @@ bool VSTEffect::CopySettingsContents(const EffectSettings& src, EffectSettings& 
    }
 
    assert(dstIter == dstEnd);
+
+   // Copy the changes vector too, avoiding allocations
+   assert(pDst->mPendingChanges.size() == pSrc->mPendingChanges.size());
+   for (size_t i = 0; i < pDst->mPendingChanges.size(); i++)
+   {
+      pDst->mPendingChanges[i] = pSrc->mPendingChanges[i];
+   }
 
    return true;
 }
@@ -3552,6 +3574,9 @@ EffectSettings VSTEffect::MakeSettings() const
 {
    VSTEffectSettings settings;
    FetchSettings(settings);
+
+   settings.mPendingChanges.resize(mAEffect->numParams, std::nullopt);
+
    return EffectSettings::Make<VSTEffectSettings>(std::move(settings));
 }
 
@@ -3608,9 +3633,17 @@ void VSTEffectWrapper::Automate(int index, float value)
 
 void VSTEffectValidator::Automate(int index, float value)
 {
-   GetInstance().callSetParameter(index, value);
+   // Do not set the parameter change directly, defer it to later
+   // 
+   mAccess.ModifySettings([&](EffectSettings& settings)
+   {
+     auto& ownSettings = static_cast<const VSTEffect&>(mEffect).GetSettings(settings);
 
-   ValidateUI();
+     assert(index < ownSettings.mPendingChanges.size());
+
+     ownSettings.mPendingChanges[index] = value;
+   });
+
 }
 
 
@@ -3682,6 +3715,9 @@ bool VSTEffectValidator::ValidateUI()
       const auto& eff = static_cast<VSTEffect&>(VSTEffectValidator::mEffect);
       if (eff.GetType() == EffectTypeGenerate)
          settings.extra.SetDuration(mDuration->GetValue());
+
+      // This call is needed in order to correctly save/export presets
+      GetInstance().ApplyPendingChanges(settings);
 
       FetchSettingsFromInstance(settings);
    });
