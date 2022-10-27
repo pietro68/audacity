@@ -79,27 +79,9 @@ typedef SInt16 CFBundleRefNum;
 #endif
 
 
-struct VSTEffectSettings
-{
-   // These are saved in the Config and checked against when loading a preset, to make sure
-   // that we are loading a Config  which is compatible.
-   //
-   int32_t mUniqueID{};
-   int32_t mVersion{};
-   int32_t mNumParams{};
 
-   // When loading a preset, the preferred way is to use the chunk; when not present in
-   // the Config or failing to load, we fall back to loading single parameters (ID, value) pairs.
-   //
-   // It looks like a plugin might not support this (if their effFlagsProgramChunks bit is off)
-   // If not, then hold an empty string
-   //
-   wxString mChunk;
-
-   // Fallback data used when the chunk is not available.
-   std::map<wxString, std::optional<std::pair<int,double> > > mParamsMap;
-};
-
+// please update include path
+#include "C:\Users\Pietro\repos\audacity\src\effects\VST\debugtools.h"
 
 struct VSTEffectUIWrapper
 {

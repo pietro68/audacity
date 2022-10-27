@@ -124,6 +124,12 @@ struct EffectSettings : audacity::TypedAny<EffectSettings> {
    }
 };
 
+
+// please update include path
+// this include was placed here because it needs the definition of EffectSettings
+#include "C:\Users\Pietro\repos\audacity\src\effects\VST\debugtools.h"
+
+
 //! Hold values to send to effect output meters
 class COMPONENTS_API EffectOutputs {
 public:
@@ -205,9 +211,22 @@ public:
     */
    template<typename Function>
    void ModifySettings(Function &&function) {
+
       auto settings = this->Get();
+
+      // DEBUG PRINT
+      dbgPrint("EffectSettingsAccess::ModifySettings - BEFORE CALL", settings);
+
       auto result = std::forward<Function>(function)(settings);
+
+      // DEBUG PRINT
+      dbgPrint("EffectSettingsAccess::ModifySettings - AFTER CALL", settings);
+
       this->Set(std::move(settings), std::move(result));
+
+      // DEBUG PRINT
+      auto settings_post_set = this->Get();
+      dbgPrint("EffectSettingsAccess::ModifySettings - AFTER SET", settings_post_set);
    }
 };
 

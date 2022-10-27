@@ -3857,6 +3857,9 @@ VSTEffectValidator::VSTEffectValidator
      mDialog( static_cast<wxDialog*>(wxGetTopLevelParent(pParent)) ),
      mNumParams(numParams)
 {
+
+   dbgPrint("VSTEffectValidator::VSTEffectValidator", VSTEffect::GetSettings(mAccess.Get()));
+
    // In case of nondestructive processing, put an initial message in the
    // queue for the instance
    mAccess.ModifySettings([&](EffectSettings &settings){
