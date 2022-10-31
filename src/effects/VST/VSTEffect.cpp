@@ -1285,6 +1285,9 @@ bool VSTEffectInstance::RealtimeProcessStart(MessagePackage& package)
    auto& message = static_cast<VSTEffectMessage&>(*package.pMessage);
    auto& settings = message.settings;
 
+
+   dbgPrint("VSTEffectInstance::RealtimeProcessStart", settings);
+
    auto &chunk = settings.mChunk;
    if (!chunk.empty()) {
       // Apply the chunk first

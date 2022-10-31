@@ -45,33 +45,40 @@ inline void dbgPrint(const std::string& callSite, const VSTEffectSettings& vstSe
 {
    print1Arg("\n=========== %s ==============\n\n", callSite.c_str());
 
-   std::string stdchunk = vstSettings.mChunk.ToStdString();
-
-   std::size_t hashOfChunk = std::hash<std::string>{}(stdchunk);
-
-   print1Arg("Hash of chunk: %zu\n", hashOfChunk);
-
-   /* alternatively, print the full chunk. This can be up to 4096 characters for some plugins,
-   *  this is why we use the hash of it instead
-   * 
-   _RPT0(0, "Chunk: ");
-
-   // chunk might be too large for the print function to succeed,
-   // break it in segments
-   size_t segmentlen = 1024;
-   size_t numFullSegments = stdchunk.length() / segmentlen;
-   for (size_t i = 0; i < numFullSegments; i++)
+   if (vstSettings.mChunk.IsEmpty())
    {
-      if (i > 0)
-         _RPT0(0, "       ");
-
-      _RPT1(0, "%s\n", stdchunk.substr(i * segmentlen, segmentlen).c_str());
+      print0Arg("Hash is EMPTY\n");
    }
+   else
+   {
+      std::string stdchunk = vstSettings.mChunk.ToStdString();
 
-   size_t remainder = stdchunk.length() - numFullSegments * segmentlen;
-   if (remainder > 0)
-      _RPT1(0, "       %s\n", stdchunk.substr(numFullSegments * segmentlen, remainder).c_str());
-   */
+      std::size_t hashOfChunk = std::hash<std::string>{}(stdchunk);
+
+      print1Arg("Hash of chunk: %zu\n", hashOfChunk);
+
+      /* alternatively, print the full chunk. This can be up to 4096 characters for some plugins,
+      *  this is why we use the hash of it instead
+      *
+      _RPT0(0, "Chunk: ");
+
+      // chunk might be too large for the print function to succeed,
+      // break it in segments
+      size_t segmentlen = 1024;
+      size_t numFullSegments = stdchunk.length() / segmentlen;
+      for (size_t i = 0; i < numFullSegments; i++)
+      {
+         if (i > 0)
+            _RPT0(0, "       ");
+
+         _RPT1(0, "%s\n", stdchunk.substr(i * segmentlen, segmentlen).c_str());
+      }
+
+      size_t remainder = stdchunk.length() - numFullSegments * segmentlen;
+      if (remainder > 0)
+         _RPT1(0, "       %s\n", stdchunk.substr(numFullSegments * segmentlen, remainder).c_str());
+      */
+   }
 
    print0Arg("\n");
 
