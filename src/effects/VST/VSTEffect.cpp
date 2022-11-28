@@ -1180,13 +1180,6 @@ bool VSTEffectInstance::RealtimeInitialize(EffectSettings &settings, double samp
 bool VSTEffectInstance::RealtimeAddProcessor(EffectSettings &settings,
    EffectOutputs *, unsigned numChannels, float sampleRate)
 {
-   if (!mRecruited)
-   {
-      // Assign self to the first processor
-      mRecruited = true;
-      return true;
-   }
-
    auto &effect = static_cast<const PerTrackEffect &>(mProcessor);
    auto slave = std::make_unique<VSTEffectInstance>(
       const_cast<PerTrackEffect &>(effect),
@@ -1204,7 +1197,6 @@ bool VSTEffectInstance::RealtimeAddProcessor(EffectSettings &settings,
 bool VSTEffectInstance::RealtimeFinalize(EffectSettings&) noexcept
 {
 return GuardedCall<bool>([&]{
-   mRecruited = false;
 
    for (const auto &slave : mSlaves)
       slave->ProcessFinalize();
@@ -1289,23 +1281,13 @@ bool VSTEffectInstance::RealtimeProcessStart(MessagePackage& package)
 size_t VSTEffectInstance::RealtimeProcess(size_t group, EffectSettings &settings,
    const float *const *inbuf, float *const *outbuf, size_t numSamples)
 {
-   if (!mRecruited)
-   {
-      // unexpected!
-      return 0;
-   }
-
    wxASSERT(numSamples <= mBlockSize);
 
-   if (group == 0)
-   {
-      // use the recruited "this" instance
-      return ProcessBlock(settings, inbuf, outbuf, numSamples);
-   }
-   else if (group <= mSlaves.size())
+ 
+   if (group < mSlaves.size())
    {
       // use the slave which maps to the group
-      return mSlaves[group - 1]->ProcessBlock(settings, inbuf, outbuf, numSamples);
+      return mSlaves[group]->ProcessBlock(settings, inbuf, outbuf, numSamples);
    }
    else
       return 0;

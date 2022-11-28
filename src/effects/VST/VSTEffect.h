@@ -563,9 +563,7 @@ private:
 
    size_t mUserBlockSize{ mBlockSize };
 
-   bool mReady{ false };
-
-   bool mRecruited{ false };
+   bool mReady{ false };     
 
    VSTEffectUIWrapper* mpOwningValidator{};
 };
