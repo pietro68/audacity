@@ -608,9 +608,10 @@ size_t RealtimeEffectState::Process(Track &track, unsigned chans,
 bool RealtimeEffectState::ProcessEnd()
 {
    auto pInstance = mwInstance.lock();
-   bool result = pInstance && IsActive() && mLastActive &&
+   bool result = pInstance &&
       // Assuming we are in a processing scope, use the worker settings
-      pInstance->RealtimeProcessEnd(mWorkerSettings.settings);
+      pInstance->RealtimeProcessEnd(mWorkerSettings.settings) &&
+      IsActive() && mLastActive;
 
    if (auto pAccessState = TestAccessState())
       // Always done, regardless of activity
