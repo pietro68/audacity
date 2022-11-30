@@ -1281,11 +1281,6 @@ bool VSTEffectInstance::ChunkMustBeAppliedInMainThread() const
 
 bool VSTEffectInstance::RealtimeProcessStart(MessagePackage& package)
 {
-   const bool applyChunkInMainThread = ChunkMustBeAppliedInMainThread();
-
-   if (applyChunkInMainThread)
-      mDeferredChunkMutex.lock();
-
    if (!package.pMessage)
       return true;
 
@@ -1295,10 +1290,11 @@ bool VSTEffectInstance::RealtimeProcessStart(MessagePackage& package)
 
    if (!chunk.empty())
    {
-      if (applyChunkInMainThread)
+      if ( ChunkMustBeAppliedInMainThread() )
       {
          // Apply the chunk later
          //
+         std::lock_guard<std::mutex> guard(mDeferredChunkMutex);
          mChunkToSetAtIdleTime = chunk;
       }
       else
@@ -1377,9 +1373,6 @@ size_t VSTEffectInstance::RealtimeProcess(size_t group, EffectSettings &settings
 
 bool VSTEffectInstance::RealtimeProcessEnd(EffectSettings &) noexcept
 {
-   if ( ChunkMustBeAppliedInMainThread() )
-      mDeferredChunkMutex.unlock();
-
    return true;
 }
 
