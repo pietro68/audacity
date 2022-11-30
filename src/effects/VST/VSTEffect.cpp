@@ -2428,8 +2428,7 @@ intptr_t VSTEffectWrapper::callDispatcher(int opcode,
                                    int index, intptr_t value, void *ptr, float opt)
 {
    // Needed since we might be in the dispatcher when the timer pops
-   std::lock_guard guard(mDispatcherLock);
-
+   wxCRIT_SECT_LOCKER(locker, mDispatcherLock);
    return mAEffect->dispatcher(mAEffect, opcode, index, value, ptr, opt);
 }
 
