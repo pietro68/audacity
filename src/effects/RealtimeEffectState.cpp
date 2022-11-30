@@ -234,7 +234,6 @@ struct RealtimeEffectState::Access final : EffectSettingsAccess {
                      stateSettings, pMessage.get()
                   };
                   pInstance->RealtimeProcessStart(package);
-                  pInstance->RealtimeProcessEnd(stateSettings);
                   pAccessState->mLastSettings.settings = stateSettings;
                   return;
                }
@@ -262,7 +261,6 @@ struct RealtimeEffectState::Access final : EffectSettingsAccess {
                      stateSettings, pMessage.get()
                   };
                   pInstance->RealtimeProcessStart(package);
-                  pInstance->RealtimeProcessEnd(stateSettings);
                   // Don't need to update pAccessState->mLastSettings
                   return;
                }
@@ -608,9 +606,10 @@ size_t RealtimeEffectState::Process(Track &track, unsigned chans,
 bool RealtimeEffectState::ProcessEnd()
 {
    auto pInstance = mwInstance.lock();
-   bool result = pInstance && IsActive() && mLastActive &&
+   bool result = pInstance &&
       // Assuming we are in a processing scope, use the worker settings
-      pInstance->RealtimeProcessEnd(mWorkerSettings.settings);
+      pInstance->RealtimeProcessEnd(mWorkerSettings.settings) &&
+      IsActive() && mLastActive;
 
    if (auto pAccessState = TestAccessState())
       // Always done, regardless of activity
