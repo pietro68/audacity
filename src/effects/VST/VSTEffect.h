@@ -99,6 +99,9 @@ struct VSTEffectSettings
 
    // Fallback data used when the chunk is not available.
    std::unordered_map<wxString, std::optional<double> > mParamsMap;
+
+   enum Origin{Undefined=0, MakeSettings=1, Preset=2, Message=3, ValidateUI=4, OnIdle=5};
+   Origin mOrigin{ Origin::Undefined };
 };
 
 
@@ -194,7 +197,8 @@ struct VSTEffectWrapper : public VSTEffectLink, public XMLTagHandler, public VST
 
    ComponentInterfaceSymbol GetSymbol() const;
 
-   void callSetParameter(int index, float value) const;
+   enum CallPoint { Unimportant=0, RTPS1=1, RTPS2=2, StoreSettings_=3 };
+   void callSetParameter(CallPoint callpoint, int index, float value) const;
 
    void SaveXML(const wxFileName& fn) const;
 

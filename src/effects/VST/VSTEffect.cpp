@@ -1027,6 +1027,8 @@ std::unique_ptr<EffectInstance::Message> VSTEffectInstance::MakeMessage() const
    VSTEffectSettings settings;
    FetchSettings(settings, /* doFetch = */ false);
 
+   settings.mOrigin = VSTEffectSettings::Origin::Message;
+
    VSTEffectMessage::ParamVector paramVector;
    paramVector.resize(mAEffect->numParams, std::nullopt);
 
@@ -1112,7 +1114,16 @@ bool VSTEffectInstance::ProcessInitialize(
    // Automate() is called-back by the plug-in during callSetParameter.
    // So this avoids a dangling reference.
    auto copiedSettings = GetSettings(settings);
+
+   const auto& opt = copiedSettings.mParamsMap.at("Gain");
+   if (opt.has_value())
+   {
+      _RPT2(0, "### Gain=%1.3f origin=%u\n", *opt, (size_t)(copiedSettings.mOrigin) );
+   }
+
    StoreSettings(copiedSettings);
+
+
 
    return DoProcessInitialize(sampleRate);
 }
@@ -1339,12 +1350,12 @@ bool VSTEffectInstance::RealtimeProcessStart(MessagePackage& package)
          float val = (float)(*message.mParamsVec[paramID]);
 
          // set the change on the recruited "this" instance
-         callSetParameter(paramID, val);
+         callSetParameter(CallPoint::RTPS1, paramID, val);
 
          // set the change on any existing slaves
          for (auto& slave : mSlaves)
          {
-            slave->callSetParameter(paramID, val);
+            slave->callSetParameter(CallPoint::RTPS2, paramID, val);
          }
 
          // clear the used info
@@ -2116,6 +2127,8 @@ OptionalMessage VSTEffect::LoadUserPreset(
          callSetChunk(true, len, buf.get(), &info);
          if (!FetchSettings(GetSettings(settings)))
             return {};
+
+         GetSettings(settings).mOrigin = VSTEffectSettings::Origin::Preset;
       }
 
       return MakeMessageFS(
@@ -2139,6 +2152,8 @@ OptionalMessage VSTEffect::LoadUserPreset(
       FetchSettings(GetSettings(settings));
    if (!loadOK)
       return {};
+
+   GetSettings(settings).mOrigin = VSTEffectSettings::Origin::Preset;
 
    return MakeMessageFS(
       VSTEffectInstance::GetSettings(settings));
@@ -2340,8 +2355,11 @@ void VSTEffectValidator::OnIdle(wxIdleEvent& evt)
                const auto &string = mParamNames[index];
                auto &mySettings = VSTEffectWrapper::GetSettings(settings);
                mySettings.mParamsMap[string] = value;
+
+               mySettings.mOrigin = VSTEffectSettings::Origin::OnIdle;
             }
          }
+
          // Succeed but with a null message
          return nullptr;
       });
@@ -2461,8 +2479,16 @@ float VSTEffectWrapper::callGetParameter(int index) const
 
 
 
-void VSTEffectWrapper::callSetParameter(int index, float value) const
+void VSTEffectWrapper::callSetParameter(CallPoint callpoint, int index, float value) const
 {
+
+#if 0
+   static int i = 0;
+   i++;
+
+   _RPT4(0, "### [%d][%u]csp(%d,%1.3f)\n", i, (size_t)callpoint, index, value);
+#endif
+
    if (mVstVersion == 0 || constCallDispatcher(effCanBeAutomated, 0, index, NULL, 0.0))
    {
       mAEffect->setParameter(mAEffect, index, value);
@@ -3116,7 +3142,7 @@ bool VSTEffectWrapper::LoadFXProgram(unsigned char **bptr, ssize_t & len, int in
          for (int i = 0; i < numParams; i++)
          {
             wxUint32 val = wxUINT32_SWAP_ON_LE(iptr[14 + i]);
-            callSetParameter(i, reinterpretAsFloat(val));
+            callSetParameter(CallPoint::Unimportant, i, reinterpretAsFloat(val));
          }
          callDispatcher(effEndSetProgram, 0, 0, NULL, 0.0);
       }
@@ -3646,7 +3672,7 @@ bool VSTEffectWrapper::HandleXMLTag(const std::string_view& tag, const Attribute
          return false;
       }
 
-      callSetParameter(ndx, val);
+      callSetParameter(CallPoint::Unimportant, ndx, val);
 
       return true;
    }
@@ -3843,7 +3869,7 @@ bool VSTEffectWrapper::StoreSettings(const VSTEffectSettings& vstSettings) const
 
             if (value >= -1.0 && value <= 1.0)
             {
-               callSetParameter(pi.mID, value);
+               callSetParameter(CallPoint::StoreSettings_, pi.mID, value);
             }
          }
          return true;
@@ -3872,6 +3898,8 @@ EffectSettings VSTEffect::MakeSettings() const
 {
    VSTEffectSettings settings;
    FetchSettings(settings);
+   settings.mOrigin = VSTEffectSettings::Origin::MakeSettings;
+
    return EffectSettings::Make<VSTEffectSettings>(std::move(settings));
 }
 
@@ -4056,6 +4084,8 @@ bool VSTEffectValidator::ValidateUI()
          settings.extra.SetDuration(mDuration->GetValue());
 
       FetchSettingsFromInstance(settings);
+
+      static_cast<const VSTEffect&>(mEffect).GetSettings(settings).mOrigin = VSTEffectSettings::Origin::ValidateUI;
 
       return GetInstance().MakeMessage();
    });
